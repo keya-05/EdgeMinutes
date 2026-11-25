@@ -8,3 +8,5 @@ torch
 sentencepiece
 rouge-score
 pytest
+python-docx
+bert-score

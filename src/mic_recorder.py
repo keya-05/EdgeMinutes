@@ -28,5 +28,6 @@ def mic_recorder(key: str | None = None) -> tuple[bytes, str, dict] | None:
         return None
     mime = value.get("mime", "")
     suffix = next((s for k, s in _SUFFIXES.items() if k in mime), ".m4a")
-    info = {"mime": mime, "size": value.get("size"), "duration_ms": value.get("duration_ms")}
+    info = {"mime": mime, "size": value.get("size"), "duration_ms": value.get("duration_ms"),
+            "id": value.get("id")}
     return base64.b64decode(value["b64"]), suffix, info

@@ -124,9 +124,15 @@ Then click **Generate Meeting Minutes**. The sidebar lets you choose the Whisper
 
 **Observed result (honest finding):** on the sample transcript, Flan-T5-small (77M parameters) produced fluent but **hallucinated** summaries with both prompts. For example, it attributed the demo-video task to "Adi" when the transcript assigns it to Rahul, and it invented "start the meeting on November 14". This is why EdgeMinutes takes decisions, owners and deadlines from rule-based extraction over the transcript and not from a small generative model.
 
+## Hindi / Marathi, document and recorder
+
+- Speech in Hindi or Marathi is transcribed in its own script; Whisper also produces an English translation, and the minutes are built from that (the summarizer and extraction rules are English-only). Use the `small` or `medium` model and pick the language in the sidebar if auto-detect is unsure.
+- Section 03 is an editable minutes document with a signature block (one person per line, `Name, Role`), downloadable as `.docx`.
+- Recording starts the pipeline automatically when you stop. No speaker identification: Whisper has no diarisation.
+
 ## Evaluation
 
-Implemented in `src/evaluation.py` and shown in the app:
+Implemented in `src/evaluation.py` (not shown in the app UI at the moment):
 
 - Transcript words, summary words, **compression ratio** (summary words ÷ transcript words)
 - **Processing time** for transcription and for summary + extraction

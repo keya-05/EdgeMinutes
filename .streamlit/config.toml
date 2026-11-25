@@ -6,3 +6,11 @@ gatherUsageStats = false
 # Avoids the file watcher scanning torch/transformers internals on every rerun.
 fileWatcherType = "none"
 maxUploadSize = 200
+
+[theme]
+base = "dark"
+primaryColor = "#a07bff"
+backgroundColor = "#101013"
+secondaryBackgroundColor = "#17171b"
+textColor = "#e9e8ee"
+borderColor = "#2a2a31"

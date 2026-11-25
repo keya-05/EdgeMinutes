@@ -4,110 +4,352 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  body { margin: 0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; color: #31333f; background: transparent; }
-  .row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 4px 2px; }
-  button { font-size: 16px; padding: 12px 20px; border-radius: 8px; border: 1px solid #d0d0d8;
-           background: #ffffff; color: #31333f; cursor: pointer; -webkit-appearance: none; }
-  button.rec { background: #ff4b4b; border-color: #ff4b4b; color: #fff; }
-  button:disabled { opacity: 0.5; }
-  #timer { font-variant-numeric: tabular-nums; font-size: 20px; min-width: 60px; }
-  #msg { font-size: 14px; color: #6b6d7a; margin-top: 6px; min-height: 18px; }
-  @media (prefers-color-scheme: dark) {
-    body { color: #fafafa; }
-    button { background: #262730; color: #fafafa; border-color: #4a4b55; }
-    #msg { color: #a3a4ad; }
+  @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap");
+  :root {
+    --bg: #131316;
+    --panel: #19191d;
+    --edge: #2a2a31;
+    --edge-soft: #202026;
+    --ink: #e9e8ee;
+    --muted: #8e8d9a;
+    --wave: #a07bff;
+    --wave-core: #d9ccff;
+    --rec: #ff4b4b;
+    --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  button { touch-action: manipulation; }
+  html, body { margin: 0; background: transparent; color: var(--ink);
+               font-family: var(--mono); -webkit-font-smoothing: antialiased; }
+  .studio { background: var(--bg); border: 1px solid var(--edge); border-radius: 6px; overflow: hidden; }
+
+  .topbar { display: flex; align-items: center; gap: 12px; height: 38px; padding: 0 14px;
+            border-bottom: 1px solid var(--edge-soft); background: var(--panel);
+            font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .topbar .state { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); }
+  .topbar .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
+  .topbar.live .dot { background: var(--rec); animation: pulse 1.1s ease-in-out infinite; }
+  .topbar .grow { flex: 1; }
+  @keyframes pulse { 50% { opacity: .25; } }
+
+  .stage { position: relative; height: 230px; cursor: crosshair; touch-action: none; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .tag { position: absolute; left: 14px; top: 34px; font-size: 10px; letter-spacing: .1em;
+         color: #6e5cc2; text-transform: uppercase; pointer-events: none; }
+  .tag.low { top: auto; bottom: 12px; color: #55545e; }
+  .playhead { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--rec);
+              pointer-events: none; left: 0; transform: translateX(0); }
+  .playhead::before { content: ""; position: absolute; top: 0; left: -5px; width: 11px; height: 9px;
+                      background: var(--rec); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+  .knob { position: absolute; width: 18px; height: 18px; border-radius: 50%; pointer-events: none;
+          background: rgba(255,255,255,.92); box-shadow: 0 0 0 4px rgba(160,123,255,.28);
+          transform: translate(-50%, -50%); display: none; }
+
+  .transport { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px;
+               height: 74px; padding: 0 16px; border-top: 1px solid var(--edge-soft); background: var(--panel); }
+  .meter { display: flex; align-items: center; gap: 10px; font-size: 10px; letter-spacing: .08em;
+           color: var(--muted); text-transform: uppercase; }
+  .meter .track { position: relative; width: clamp(60px, 14vw, 120px); height: 3px; border-radius: 2px; background: #2c2c34; }
+  .meter .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 2px; background: var(--wave); }
+  .meter .thumb { position: absolute; top: 50%; width: 9px; height: 9px; border-radius: 50%;
+                  background: #fff; transform: translate(-50%, -50%); left: 0; }
+
+  .controls { display: flex; align-items: center; gap: 18px; }
+  .controls .time { font-size: 15px; font-weight: 500; min-width: 86px; text-align: left;
+                    font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+  button { font-family: inherit; color: var(--ink); background: none; border: 0; cursor: pointer; padding: 0;
+           -webkit-appearance: none; }
+  .ico { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%;
+         transition: background .15s, transform .1s; }
+  .ico:hover:not(:disabled) { background: #26262d; }
+  .ico:active:not(:disabled) { transform: scale(.94); }
+  .ico:disabled { opacity: .3; cursor: default; }
+  .ico:focus-visible, .rec:focus-visible { outline: 2px solid var(--wave); outline-offset: 2px; }
+  .ico svg { width: 18px; height: 18px; fill: currentColor; }
+  .play { width: 42px; height: 42px; border: 1px solid #3a3a44; }
+
+  .right { display: flex; justify-content: flex-end; align-items: center; gap: 14px; }
+  .hint { font-size: 10.5px; color: var(--muted); letter-spacing: .04em; text-align: right; max-width: 220px; }
+  .rec { display: inline-flex; align-items: center; gap: 9px; height: 40px; padding: 0 18px; border-radius: 20px;
+         border: 1px solid #3a3a44; font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+         background: #202026; transition: background .15s, border-color .15s, transform .1s; }
+  .rec:hover:not(:disabled) { background: #2a2a32; border-color: #55546a; }
+  .rec:active:not(:disabled) { transform: scale(.97); }
+  .rec .circle { width: 10px; height: 10px; border-radius: 50%; background: var(--rec); transition: border-radius .15s; }
+  .rec.on, .rec.on:hover:not(:disabled) { background: var(--rec); border-color: var(--rec); color: #fff; }
+  .rec.on .circle { background: #fff; border-radius: 2px; }
+  .rec:disabled { opacity: .5; cursor: default; }
+
+  @media (max-width: 640px) {
+    .transport { grid-template-columns: 1fr; height: auto; padding: 14px 16px; gap: 14px; justify-items: center; }
+    .meter { display: none; }
+    .right { justify-content: center; }
+    .hint { display: none; }
+    .stage { height: 190px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .topbar.live .dot { animation: none; } }
 </style>
 </head>
 <body>
-<div class="row">
-  <button id="btn" type="button">● Start recording</button>
-  <span id="timer">00:00</span>
+<div class="studio">
+  <div class="topbar" id="topbar">
+    <span class="state"><span class="dot" aria-hidden="true"></span><span id="state" role="status" aria-live="polite">Ready</span></span>
+    <span class="grow"></span>
+    <span id="fmt"></span>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="ruler" aria-hidden="true"></canvas>
+    <canvas id="wave" role="img" aria-label="Waveform of the recording"></canvas>
+    <span class="tag">Track 01</span>
+    <span class="tag low" id="lowtag">Meeting audio</span>
+    <div class="playhead" id="playhead"></div>
+    <div class="knob" id="knob"></div>
+  </div>
+
+  <div class="transport">
+    <div class="meter" aria-hidden="true">
+      <span>Input</span>
+      <span class="track"><span class="fill" id="lvl"></span><span class="thumb" id="lvlthumb"></span></span>
+    </div>
+
+    <div class="controls">
+      <button class="ico" id="back" type="button" aria-label="Back 5 seconds" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h2v12H6zM9.5 12 18 18V6z"/></svg></button>
+      <button class="ico play" id="play" type="button" aria-label="Play recording" disabled>
+        <svg viewBox="0 0 24 24" id="playicon" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></button>
+      <button class="ico" id="fwd" type="button" aria-label="Forward 5 seconds" disabled>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg></button>
+      <span class="time" id="time" aria-label="Elapsed time">00:00.0</span>
+    </div>
+
+    <div class="right">
+      <span class="hint" id="msg" role="status" aria-live="polite">Tap record, speak, tap stop.</span>
+      <button class="rec" id="btn" type="button"><span class="circle" aria-hidden="true"></span><span id="btnlabel">Record</span></button>
+    </div>
+  </div>
 </div>
-<div id="msg">Tap once to start, tap again to stop.</div>
+
 <script>
 // Minimal Streamlit component protocol (no build step): messages to the parent page.
 function send(type, data) {
   window.parent.postMessage(Object.assign({ isStreamlitMessage: true, type: type }, data || {}), "*");
 }
 
-const btn = document.getElementById("btn");
-const timer = document.getElementById("timer");
-const msg = document.getElementById("msg");
-let recorder = null, stream = null, chunks = [], startedAt = 0, tick = null;
+const $ = function (id) { return document.getElementById(id); };
+const btn = $("btn"), btnLabel = $("btnlabel"), msg = $("msg"), stateEl = $("state"), topbar = $("topbar");
+const stage = $("stage"), waveCv = $("wave"), rulerCv = $("ruler"), playhead = $("playhead"), knob = $("knob");
+const playBtn = $("play"), backBtn = $("back"), fwdBtn = $("fwd"), timeEl = $("time"), playIcon = $("playicon");
+const lvl = $("lvl"), lvlThumb = $("lvlthumb");
 
+const PLAY = "M8 5v14l11-7z", PAUSE = "M6 5h4v14H6zM14 5h4v14h-4z";
+const SAMPLE_MS = 40;                       // one waveform sample per 40 ms
+let recorder = null, stream = null, chunks = [], startedAt = 0, ticker = null;
+let audioCtx = null, analyser = null, buf = null;
+let amps = [];                              // peak amplitude (0..1) per SAMPLE_MS
+let mode = "idle";                          // idle | recording | stopped
+let player = null, playUrl = null, durationMs = 0;
+
+// ------------------------------------------------------------------ helpers
 function fmt(ms) {
-  const s = Math.floor(ms / 1000);
-  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  const t = Math.max(0, ms) / 1000, m = Math.floor(t / 60), s = t - m * 60;
+  return String(m).padStart(2, "0") + ":" + (s < 10 ? "0" : "") + s.toFixed(1);
 }
+function setState(text, live) { stateEl.textContent = text; topbar.classList.toggle("live", !!live); }
 
 // iOS Safari records AAC in MP4; Chrome/Firefox/Edge record Opus in WebM/Ogg.
 function pickMimeType() {
-  const candidates = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
+  const c = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus"];
   if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return "";
-  return candidates.find(function (m) { return MediaRecorder.isTypeSupported(m); }) || "";
+  return c.find(function (m) { return MediaRecorder.isTypeSupported(m); }) || "";
 }
 
+// ------------------------------------------------------------------ drawing
+function fit(cv) {
+  const r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.round(r.width * d)), h = Math.max(1, Math.round(r.height * d));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const ctx = cv.getContext("2d");
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  return { ctx: ctx, w: r.width, h: r.height };
+}
+
+// Visible time window in ms: grows with the recording so the whole take always fits.
+function windowMs() {
+  const used = mode === "recording" ? amps.length * SAMPLE_MS : (durationMs || amps.length * SAMPLE_MS);
+  return Math.max(20000, used * 1.15);
+}
+
+function drawRuler() {
+  const g = fit(rulerCv), ctx = g.ctx;
+  ctx.clearRect(0, 0, g.w, g.h);
+  const win = windowMs() / 1000;
+  const steps = [1, 2, 5, 10, 15, 30, 60, 120, 300];
+  const step = steps.find(function (s) { return win / s <= 12; }) || 600;
+  ctx.font = "9.5px " + getComputedStyle(document.body).fontFamily;
+  ctx.fillStyle = "#6a6975"; ctx.strokeStyle = "#2c2c34"; ctx.lineWidth = 1;
+  ctx.textBaseline = "top";
+  ctx.beginPath(); ctx.moveTo(0, 22.5); ctx.lineTo(g.w, 22.5); ctx.stroke();
+  for (let s = 0; s <= win; s += step) {
+    const x = Math.round(s / win * g.w) + .5;
+    ctx.beginPath(); ctx.moveTo(x, 16); ctx.lineTo(x, 23); ctx.stroke();
+    ctx.fillText(s >= 60 ? Math.floor(s / 60) + "m" + (s % 60 ? s % 60 : "") : s + "s", x + 4, 7);
+    for (let k = 1; k < 5; k++) {
+      const mx = Math.round((s + step * k / 5) / win * g.w) + .5;
+      if (mx < g.w) { ctx.beginPath(); ctx.moveTo(mx, 19); ctx.lineTo(mx, 23); ctx.stroke(); }
+    }
+  }
+}
+
+// Column-wise envelope of `amps`, lightly smoothed.
+function envelope(cols, usedMs, win) {
+  const out = new Float32Array(cols);
+  const per = amps.length ? usedMs / amps.length : SAMPLE_MS;
+  for (let x = 0; x < cols; x++) {
+    const t0 = x / cols * win, t1 = (x + 1) / cols * win;
+    if (t0 > usedMs) { out[x] = 0; continue; }
+    const i0 = Math.floor(t0 / per), i1 = Math.max(i0 + 1, Math.ceil(Math.min(t1, usedMs) / per));
+    let m = 0;
+    for (let i = i0; i < i1 && i < amps.length; i++) m = Math.max(m, amps[i]);
+    out[x] = m;
+  }
+  const sm = new Float32Array(cols);
+  for (let x = 0; x < cols; x++) {
+    let a = 0, n = 0;
+    for (let k = -3; k <= 3; k++) { const j = x + k; if (j >= 0 && j < cols) { a += out[j]; n++; } }
+    sm[x] = a / n;
+  }
+  return sm;
+}
+
+function drawWave() {
+  const g = fit(waveCv), ctx = g.ctx, w = g.w, h = g.h;
+  ctx.clearRect(0, 0, w, h);
+  const top = 28, mid = top + (h - top) / 2, half = (h - top) / 2 - 10;
+  const win = windowMs();
+  const usedMs = mode === "recording" ? amps.length * SAMPLE_MS : (durationMs || amps.length * SAMPLE_MS);
+
+  // faint guide lines
+  ctx.strokeStyle = "#1d1d23"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, top + 0.5); ctx.lineTo(w, top + 0.5); ctx.moveTo(0, h - 0.5); ctx.lineTo(w, h - 0.5); ctx.stroke();
+
+  const cols = Math.floor(w);
+  const env = amps.length ? envelope(cols, usedMs, win) : new Float32Array(cols);
+  // Make quiet speech visible: scale so the loudest part fills ~85% of the height.
+  let peak = 0.05; for (let i = 0; i < cols; i++) peak = Math.max(peak, env[i]);
+  const gain = Math.min(1 / peak, 12) * 0.85;
+
+  const layers = [
+    { k: 1.0, fill: "rgba(160,123,255,0.22)" },
+    { k: 0.62, fill: "rgba(160,123,255,0.45)" },
+    { k: 0.26, fill: "rgba(190,165,255,0.85)" }
+  ];
+  layers.forEach(function (L) {
+    ctx.beginPath(); ctx.moveTo(0, mid);
+    for (let x = 0; x < cols; x++) ctx.lineTo(x, mid - Math.max(0.5, env[x] * gain * half * L.k));
+    for (let x = cols - 1; x >= 0; x--) ctx.lineTo(x, mid + Math.max(0.5, env[x] * gain * half * L.k));
+    ctx.closePath(); ctx.fillStyle = L.fill; ctx.fill();
+  });
+  // centre line: the whole take, brighter where there is audio
+  ctx.strokeStyle = "rgba(217,204,255,.9)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, mid + .5); ctx.lineTo(Math.min(w, usedMs / win * w), mid + .5); ctx.stroke();
+  ctx.strokeStyle = "#2e2e36";
+  ctx.beginPath(); ctx.moveTo(Math.min(w, usedMs / win * w), mid + .5); ctx.lineTo(w, mid + .5); ctx.stroke();
+}
+
+function placePlayhead(ms) {
+  const w = stage.clientWidth, x = Math.min(w, ms / windowMs() * w);
+  playhead.style.transform = "translateX(" + x + "px)";
+  timeEl.textContent = fmt(ms);
+}
+
+function render() { drawRuler(); drawWave(); }
+new ResizeObserver(render).observe(stage);
+
+// ------------------------------------------------------------------ recording
 async function start() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    msg.textContent = "Microphone unavailable: open this page over HTTPS (or localhost).";
-    return;
+    msg.textContent = "Microphone unavailable: open this page over HTTPS (or localhost)."; return;
   }
-  if (!window.MediaRecorder) {
-    msg.textContent = "This browser cannot record audio (MediaRecorder missing). Use Upload audio.";
-    return;
-  }
+  if (!window.MediaRecorder) { msg.textContent = "This browser cannot record. Use Upload audio."; return; }
+  stopPlayback(true);
   try {
-    // Called directly from the tap, as iOS requires a user gesture.
-    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Called straight from the tap, as iOS requires a user gesture.
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
   } catch (err) {
-    msg.textContent = "Microphone blocked (" + err.name + "). Allow microphone access for this site and try again.";
-    return;
+    msg.textContent = "Microphone blocked (" + err.name + "). Allow access for this site and retry."; return;
   }
   const mimeType = pickMimeType();
-  chunks = [];
+  chunks = []; amps = []; durationMs = 0;
   try {
     recorder = mimeType ? new MediaRecorder(stream, { mimeType: mimeType }) : new MediaRecorder(stream);
   } catch (err) {
     msg.textContent = "Could not start recorder (" + err.name + ").";
-    stream.getTracks().forEach(function (t) { t.stop(); });
-    return;
+    stream.getTracks().forEach(function (t) { t.stop(); }); return;
   }
   recorder.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
   recorder.onstop = finish;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new AC();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    analyser = audioCtx.createAnalyser(); analyser.fftSize = 1024;
+    audioCtx.createMediaStreamSource(stream).connect(analyser);
+    buf = new Uint8Array(analyser.fftSize);
+  } catch (err) { analyser = null; }       // recording still works without the live waveform
   recorder.start(1000);
-  startedAt = Date.now();
-  timer.textContent = "00:00";
-  tick = setInterval(function () { timer.textContent = fmt(Date.now() - startedAt); }, 250);
-  btn.textContent = "■ Stop recording";
-  btn.classList.add("rec");
-  msg.textContent = "Recording…";
+  startedAt = performance.now(); mode = "recording";
+  $("fmt").textContent = (recorder.mimeType || mimeType || "audio").split(";")[0];
+  btn.classList.add("on"); btnLabel.textContent = "Stop";
+  setState("Recording", true);
+  msg.textContent = "Speak close to the mic.";
+  [playBtn, backBtn, fwdBtn].forEach(function (b) { b.disabled = true; });
+  knob.style.display = "none";
+  ticker = setInterval(sample, SAMPLE_MS);
+}
+
+function sample() {
+  let a = 0;
+  if (analyser) {
+    analyser.getByteTimeDomainData(buf);
+    for (let i = 0; i < buf.length; i++) a = Math.max(a, Math.abs(buf[i] - 128) / 128);
+  }
+  amps.push(a);
+  const pct = Math.min(100, Math.pow(a, 0.5) * 100);
+  lvl.style.width = pct + "%"; lvlThumb.style.left = pct + "%";
+  const el = performance.now() - startedAt;
+  placePlayhead(el); render();
 }
 
 function stop() {
-  clearInterval(tick);
-  btn.disabled = true;
-  msg.textContent = "Processing…";
+  clearInterval(ticker);
+  btn.disabled = true; setState("Processing"); msg.textContent = "Processing…";
   if (recorder && recorder.state !== "inactive") recorder.stop();
   if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
-}
-
-function reset() {
-  btn.disabled = false;
-  btn.textContent = "● Start recording";
-  btn.classList.remove("rec");
-  recorder = null;
+  if (audioCtx) { audioCtx.close().catch(function () {}); audioCtx = null; analyser = null; }
 }
 
 function finish() {
-  const durationMs = Date.now() - startedAt;
+  durationMs = Math.round(performance.now() - startedAt);
   const type = (recorder && recorder.mimeType) || (chunks[0] && chunks[0].type) || "audio/mp4";
   const blob = new Blob(chunks, { type: type });
+  btn.disabled = false; btn.classList.remove("on"); btnLabel.textContent = "Record again";
+  lvl.style.width = "0"; lvlThumb.style.left = "0";
   if (!blob.size) {
-    msg.textContent = "Nothing was recorded. Try again and speak for a few seconds.";
-    reset();
-    return;
+    mode = "idle"; setState("Ready"); msg.textContent = "Nothing was recorded. Try again and speak for a few seconds.";
+    render(); return;
   }
+  mode = "stopped";
+  setState("Recorded"); topbar.classList.remove("live");
+  [playBtn, backBtn, fwdBtn].forEach(function (b) { b.disabled = false; });
+  if (playUrl) URL.revokeObjectURL(playUrl);
+  playUrl = URL.createObjectURL(blob);
+  player = new Audio(playUrl);
+  player.addEventListener("timeupdate", function () { placePlayhead(player.currentTime * 1000); showKnob(); });
+  player.addEventListener("ended", function () { setPlayIcon(false); });
+  placePlayhead(0); render();
   const reader = new FileReader();
   reader.onloadend = function () {
     send("streamlit:setComponentValue", {
@@ -115,18 +357,52 @@ function finish() {
       value: { b64: String(reader.result).split(",")[1], mime: type, size: blob.size,
                duration_ms: durationMs, id: Date.now() }
     });
-    msg.textContent = "Recorded " + fmt(durationMs) + ". Now tap Generate Meeting Minutes.";
-    reset();
+    msg.textContent = "Recorded " + fmt(durationMs) + ". Transcribing below…";
   };
   reader.readAsDataURL(blob);
 }
 
-btn.addEventListener("click", function () {
-  if (recorder && recorder.state === "recording") stop(); else start();
+// ------------------------------------------------------------------ playback
+function setPlayIcon(playing) {
+  playIcon.firstElementChild.setAttribute("d", playing ? PAUSE : PLAY);
+  playBtn.setAttribute("aria-label", playing ? "Pause recording" : "Play recording");
+}
+function showKnob() {
+  const x = parseFloat(playhead.style.transform.replace(/[^\d.\-]/g, "")) || 0;
+  knob.style.display = "block"; knob.style.left = x + "px"; knob.style.top = "50%";
+}
+function stopPlayback(reset) {
+  if (!player) return;
+  player.pause(); setPlayIcon(false);
+  if (reset) { player = null; knob.style.display = "none"; }
+}
+function seek(ms) {
+  if (!player) return;
+  player.currentTime = Math.max(0, Math.min(durationMs, ms)) / 1000;
+  placePlayhead(player.currentTime * 1000); showKnob();
+}
+
+playBtn.addEventListener("click", function () {
+  if (!player) return;
+  if (player.paused) { player.play(); setPlayIcon(true); } else { player.pause(); setPlayIcon(false); }
+});
+backBtn.addEventListener("click", function () { if (player) seek(player.currentTime * 1000 - 5000); });
+fwdBtn.addEventListener("click", function () { if (player) seek(player.currentTime * 1000 + 5000); });
+stage.addEventListener("pointerdown", function (e) {
+  if (mode !== "stopped" || !player) return;
+  const r = stage.getBoundingClientRect();
+  seek((e.clientX - r.left) / r.width * windowMs());
+});
+btn.addEventListener("click", function () { if (mode === "recording") stop(); else start(); });
+window.addEventListener("keydown", function (e) {
+  if (e.code === "Space" && mode === "stopped" && player && document.activeElement === document.body) {
+    e.preventDefault(); playBtn.click();
+  }
 });
 
+render();
 send("streamlit:componentReady", { apiVersion: 1 });
-send("streamlit:setFrameHeight", { height: 96 });
+send("streamlit:setFrameHeight", { height: 356 });
 </script>
 </body>
 </html>
